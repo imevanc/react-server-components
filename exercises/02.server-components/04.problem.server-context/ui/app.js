@@ -1,14 +1,12 @@
-import { Fragment, Suspense, createElement as h } from 'react'
+import { createElement as h, Fragment, Suspense } from 'react'
 // 💰 you'll want this:
-// import { shipDataStorage } from '../server/async-storage.js'
 import { ShipDetails, ShipFallback } from './ship-details.js'
 import { SearchResults, SearchResultsFallback } from './ship-search-results.js'
+import { shipDataStorage } from '../server/async-storage.js'
 
-export function App(
-	// 💣 remove these props
-	{ shipId, search },
-) {
+export function App() {
 	// 🐨 use shipDataStorage.getStore() to access the shipId and search
+	const { shipId, search } = shipDataStorage.getStore()
 	return h(
 		'div',
 		{ className: 'app' },
@@ -32,15 +30,7 @@ export function App(
 				h(
 					'ul',
 					null,
-					h(
-						Suspense,
-						{ fallback: h(SearchResultsFallback) },
-						h(
-							SearchResults,
-							// 💣 remove the props here
-							{ shipId, search },
-						),
-					),
+					h(Suspense, { fallback: h(SearchResultsFallback) }, h(SearchResults)),
 				),
 			),
 		),
@@ -51,17 +41,9 @@ export function App(
 				? h(
 						Suspense,
 						{
-							fallback: h(
-								ShipFallback,
-								// 💣 remove the shipId prop here
-								{ shipId },
-							),
+							fallback: h(ShipFallback),
 						},
-						h(
-							ShipDetails,
-							// 💣 remove the shipId prop here
-							{ shipId },
-						),
+						h(ShipDetails),
 					)
 				: h('p', null, 'Select a ship from the list to see details'),
 		),

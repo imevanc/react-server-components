@@ -8,9 +8,9 @@ const MIN_DELAY = 200
 const MAX_DELAY = 500
 
 export async function searchShips({
-	search,
-	delay = Math.random() * (MAX_DELAY - MIN_DELAY) + MIN_DELAY,
-}) {
+									  search,
+									  delay = Math.random() * (MAX_DELAY - MIN_DELAY) + MIN_DELAY,
+								  }) {
 	const endTime = Date.now() + delay
 	const ships = shipData
 		.filter(ship => ship.name.toLowerCase().includes(search.toLowerCase()))
@@ -22,9 +22,9 @@ export async function searchShips({
 }
 
 export async function getShip({
-	shipId,
-	delay = Math.random() * (MAX_DELAY - MIN_DELAY) + MIN_DELAY,
-}) {
+								  shipId,
+								  delay = Math.random() * (MAX_DELAY - MIN_DELAY) + MIN_DELAY,
+							  }) {
 	const endTime = Date.now() + delay
 	if (!shipId) {
 		throw new Error('No shipId provided')
@@ -38,10 +38,10 @@ export async function getShip({
 }
 
 export async function updateShipName({
-	shipId,
-	shipName,
-	delay = Math.random() * (MAX_DELAY - MIN_DELAY) + MIN_DELAY,
-}) {
+										 shipId,
+										 shipName,
+										 delay = Math.random() * (MAX_DELAY - MIN_DELAY) + MIN_DELAY,
+									 }) {
 	const endTime = Date.now() + delay
 	const ship = shipData.find(ship => ship.id === shipId)
 	await new Promise(resolve => setTimeout(resolve, endTime - Date.now()))
