@@ -1,4 +1,4 @@
-import { Suspense, createElement as h, startTransition, use } from 'react'
+import { createElement as h, startTransition, Suspense, use } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createFromFetch } from 'react-server-dom-esm/client'
 import { shipFallbackSrc } from './img-utils.js'
@@ -10,6 +10,7 @@ const initialLocation = getGlobalLocation()
 const initialContentFetchPromise = fetch(`/rsc${initialLocation}`)
 const initialContentPromise = createFromFetch(initialContentFetchPromise, {
 	// 🐨 add a moduleBaseURL option here set to `${window.location.origin}/ui`
+	moduleBaseURL: `${window.location.origin}/ui`,
 })
 
 function Root() {
