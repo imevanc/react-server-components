@@ -1,11 +1,10 @@
 import {
-	Suspense,
 	createElement as h,
 	startTransition,
+	Suspense,
 	use,
 	useDeferredValue,
-	// 💰 you're gonna need this
-	// useEffect,
+	useEffect,
 	useRef,
 	useState,
 	useTransition,
@@ -14,7 +13,7 @@ import { createRoot } from 'react-dom/client'
 import * as RSC from 'react-server-dom-esm/client'
 import { ErrorBoundary } from './error-boundary.js'
 import { shipFallbackSrc } from './img-utils.js'
-import { RouterContext, getGlobalLocation, useLinkHandler } from './router.js'
+import { getGlobalLocation, RouterContext, useLinkHandler } from './router.js'
 
 function fetchContent(location) {
 	return fetch(`/rsc${location}`)
@@ -47,13 +46,25 @@ function Root() {
 	// 🐨 add that handlePopState as an event listener to the popstate event on window
 	// 🐨 don't forget to remove the event listener in the cleanup!
 
+	useEffect(() => {
+		const handlePopState = () => {
+			const nextLocation = getGlobalLocation()
+			setNextLocation(nextLocation)
+			const fetchPromise = fetchContent(nextLocation)
+			const nextContentPromise = createFromFetch(fetchPromise)
+			startTransition(() => setContentPromise(nextContentPromise))
+		}
+		window.addEventListener('popstate', handlePopState)
+		return () => window.removeEventListener('popstate', handlePopState)
+	}, [])
+
 	function navigate(nextLocation, { replace = false } = {}) {
 		setNextLocation(nextLocation)
 		const thisNav = Symbol(`Nav for ${nextLocation}`)
 		latestNav.current = thisNav
 
 		const nextContentPromise = createFromFetch(
-			fetchContent(nextLocation).then(response => {
+			fetchContent(nextLocation).then((response) => {
 				if (thisNav !== latestNav.current) return
 				if (replace) {
 					window.history.replaceState({}, '', nextLocation)

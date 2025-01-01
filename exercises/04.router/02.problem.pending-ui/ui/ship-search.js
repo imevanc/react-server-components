@@ -1,34 +1,38 @@
 'use client'
 
-import { Fragment, Suspense, createElement as h } from 'react'
+import { createElement as h, Fragment, Suspense } from 'react'
 import { ErrorBoundary } from './error-boundary.js'
 // 💰 bring in parseLocationState here
-import { mergeLocationState, useRouter } from './router.js'
+import { mergeLocationState, parseLocationState, useRouter } from './router.js'
+import { useSpinDelay } from './spin-delay.js'
+
 // 💯 if you want to do the extra credit, you'll want this:
-// import { useSpinDelay } from './spin-delay.js'
 
 export function ShipSearch({ search, results, fallback }) {
 	// 🐨 get the nextLocation here
-	const { navigate, location } = useRouter()
+	const { navigate, location, nextLocation } = useRouter()
 	// 🐨 we're pending if the nextLocation's search is different from the current
 	// location's search
+	const isShipSearchPending =
+		parseLocationState(location).search !==
+		parseLocationState(nextLocation).search
 	// 💰 you'll want to use parseLocationState for this
 	// 💯 for extra credit, avoid a flash of loading state with useSpinDelay
-	const isShipSearchPending = false
+	useSpinDelay(isShipSearchPending, { delay: 200, minDuration: 200 })
 
 	return h(
 		Fragment,
 		null,
 		h(
 			'form',
-			{ onSubmit: e => e.preventDefault() },
+			{ onSubmit: (e) => e.preventDefault() },
 			h('input', {
 				placeholder: 'Filter ships...',
 				type: 'search',
 				defaultValue: search,
 				name: 'search',
 				autoFocus: true,
-				onChange: event => {
+				onChange: (event) => {
 					const newLocation = mergeLocationState(location, {
 						search: event.currentTarget.value,
 					})

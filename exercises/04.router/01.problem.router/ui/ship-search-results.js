@@ -8,15 +8,13 @@ import { SelectShipLink } from './ship-search.js'
 export async function SearchResults() {
 	const { shipId: currentShipId, search } = shipDataStorage.getStore()
 	const shipResults = await searchShips({ search })
-	return shipResults.ships.map(ship =>
+	return shipResults.ships.map((ship) =>
 		h(
 			'li',
 			{ key: ship.name },
 			h(
 				SelectShipLink,
-				// 💣 you can remove the search prop here now that this information is
-				// in our router.
-				{ shipId: ship.id, search, highlight: ship.id === currentShipId },
+				{ shipId: ship.id, highlight: ship.id === currentShipId },
 				h(ShipImg, {
 					src: getImageUrlForShip(ship.id, { size: 20 }),
 					alt: ship.name,
