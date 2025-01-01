@@ -1,7 +1,7 @@
 import {
-	Suspense,
 	createElement as h,
 	startTransition,
+	Suspense,
 	use,
 	useDeferredValue,
 	useEffect,
@@ -11,10 +11,10 @@ import {
 } from 'react'
 import { createRoot } from 'react-dom/client'
 import * as RSC from 'react-server-dom-esm/client'
-import { contentCache, useContentCache, generateKey } from './content-cache.js'
+import { contentCache, generateKey, useContentCache } from './content-cache.js'
 import { ErrorBoundary } from './error-boundary.js'
 import { shipFallbackSrc } from './img-utils.js'
-import { RouterContext, getGlobalLocation, useLinkHandler } from './router.js'
+import { getGlobalLocation, RouterContext, useLinkHandler } from './router.js'
 
 function fetchContent(location) {
 	return fetch(`/rsc${location}`)
@@ -24,6 +24,7 @@ function createFromFetch(fetchPromise) {
 	return RSC.createFromFetch(fetchPromise, {
 		moduleBaseURL: `${window.location.origin}/ui`,
 		// 🐨 pass callServer here
+		callServer,
 	})
 }
 
@@ -36,6 +37,18 @@ function createFromFetch(fetchPromise) {
 // 🐨 then create a new actionResponsePromise using createFromFetch
 // 🐨 await the actionResponsePromise and destructure a property called "returnValue"
 // 🐨 return the returnValue
+const callServer = async (id, args) => {
+	const response = await fetch(`/action${getGlobalLocation()}`, {
+		method: 'POST',
+		headers: {
+			'rsc-action': id,
+		},
+		body: await RSC.encodeReply(args),
+	})
+	const actionResponsePromise = createFromFetch(response)
+	const { returnValue } = await actionResponsePromise
+	return returnValue
+}
 
 const initialLocation = getGlobalLocation()
 const initialContentPromise = createFromFetch(fetchContent(initialLocation))
@@ -71,6 +84,7 @@ function Root() {
 
 			startTransition(() => setContentKey(historyKey))
 		}
+
 		window.addEventListener('popstate', handlePopState)
 		return () => window.removeEventListener('popstate', handlePopState)
 	}, [contentCache])
@@ -82,7 +96,7 @@ function Root() {
 
 		const newContentKey = generateKey()
 		const nextContentPromise = createFromFetch(
-			fetchContent(nextLocation).then(response => {
+			fetchContent(nextLocation).then((response) => {
 				if (thisNav !== latestNav.current) return
 				if (replace) {
 					window.history.replaceState({ key: newContentKey }, '', nextLocation)

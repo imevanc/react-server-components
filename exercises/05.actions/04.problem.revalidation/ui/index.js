@@ -1,7 +1,7 @@
 import {
-	Suspense,
 	createElement as h,
 	startTransition,
+	Suspense,
 	use,
 	useDeferredValue,
 	useEffect,
@@ -11,20 +11,18 @@ import {
 } from 'react'
 import { createRoot } from 'react-dom/client'
 import * as RSC from 'react-server-dom-esm/client'
-import { contentCache, useContentCache, generateKey } from './content-cache.js'
+import { contentCache, generateKey, useContentCache } from './content-cache.js'
 import { ErrorBoundary } from './error-boundary.js'
 import { shipFallbackSrc } from './img-utils.js'
-import { RouterContext, getGlobalLocation, useLinkHandler } from './router.js'
+import { getGlobalLocation, RouterContext, useLinkHandler } from './router.js'
 
 function fetchContent(location) {
 	return fetch(`/rsc${location}`)
 }
 
-// 🐨 uncomment this. We're going to reassign this function when our component
-// renders, but we need it here so we can call it from outside our component.
-// function updateContentKey() {
-// 	console.error('updateContentKey called before it was set!')
-// }
+function updateContentKey() {
+	console.error('updateContentKey called before it was set!')
+}
 
 function createFromFetch(fetchPromise) {
 	return RSC.createFromFetch(fetchPromise, {
@@ -39,16 +37,12 @@ async function callServer(id, args) {
 		headers: { 'rsc-action': id },
 		body: await RSC.encodeReply(args),
 	})
-	// 🐨 get the contentKey from window.history.state?.key ?? generateKey()
-	// 🐨 use the onStreamFinished utility from below:
-	// 💰
-	// onStreamFinished(fetchPromise, () => {
-	// 	🐨 when the stream is finished, call updateContentKey with the contentKey
-	// })
-	// 🦉 we need to wait until the stream is finished otherwise we'll update to a
-	// pending state!
+	const contentKey = window.history.state?.key ?? generateKey()
+	onStreamFinished(fetchPromise, () => {
+		updateContentKey(contentKey)
+	})
 	const actionResponsePromise = createFromFetch(fetchPromise)
-	// 🐨 use the contentKey to add the actionResponsePromise in the contentCache
+	contentCache.set(contentKey, actionResponsePromise)
 	const { returnValue } = await actionResponsePromise
 	return returnValue
 }
@@ -63,17 +57,16 @@ if (!initialContentKey) {
 }
 contentCache.set(initialContentKey, initialContentPromise)
 
-// 💰 you're going to want this handy utility
-// function onStreamFinished(fetchPromise, onFinished) {
-// 	// create a promise chain that resolves when the stream is completely consumed
-// 	return (
-// 		fetchPromise
-// 			// clone the response so createFromFetch can use it (otherwise we lock the reader)
-// 			// and wait for the text to be consumed so we know the stream is finished
-// 			.then(response => response.clone().text())
-// 			.then(onFinished)
-// 	)
-// }
+function onStreamFinished(fetchPromise, onFinished) {
+	// create a promise chain that resolves when the stream is completely consumed
+	return (
+		fetchPromise
+			// clone the response so createFromFetch can use it (otherwise we lock the reader)
+			// and wait for the text to be consumed so we know the stream is finished
+			.then((response) => response.clone().text())
+			.then(onFinished)
+	)
+}
 
 function Root() {
 	const latestNav = useRef(null)
@@ -82,8 +75,13 @@ function Root() {
 	const [contentKey, setContentKey] = useState(initialContentKey)
 	const [isPending, startTransition] = useTransition()
 
-	// 🐨 add a useEffect here that reassigns updateConentKey to a function that
-	// accepts a newContentKey and calls setContentKey(newContentKey) in a startTransition
+	// set the updateContentKey function in a useEffect to avoid issues with
+	// concurrent rendering (useDeferredValue will create throw-away renders).
+	useEffect(() => {
+		updateContentKey = (newContentKey) => {
+			startTransition(() => setContentKey(newContentKey))
+		}
+	}, [])
 
 	const location = useDeferredValue(nextLocation)
 	const contentPromise = contentCache.get(contentKey)
@@ -100,9 +98,9 @@ function Root() {
 				contentCache.set(historyKey, nextContentPromise)
 			}
 
-			// 🐨 swap this with updateContentKey
-			startTransition(() => setContentKey(historyKey))
+			updateContentKey(historyKey)
 		}
+
 		window.addEventListener('popstate', handlePopState)
 		return () => window.removeEventListener('popstate', handlePopState)
 	}, [contentCache])
@@ -114,7 +112,7 @@ function Root() {
 
 		const newContentKey = generateKey()
 		const nextContentPromise = createFromFetch(
-			fetchContent(nextLocation).then(response => {
+			fetchContent(nextLocation).then((response) => {
 				if (thisNav !== latestNav.current) return
 				if (replace) {
 					window.history.replaceState({ key: newContentKey }, '', nextLocation)
@@ -126,8 +124,7 @@ function Root() {
 		)
 
 		contentCache.set(newContentKey, nextContentPromise)
-		// 🐨 swap this with updateContentKey
-		startTransition(() => setContentKey(newContentKey))
+		updateContentKey(newContentKey)
 	}
 
 	useLinkHandler(navigate)
