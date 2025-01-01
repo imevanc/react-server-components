@@ -1,11 +1,10 @@
 import {
-	Suspense,
 	createElement as h,
 	startTransition,
+	Suspense,
 	use,
 	useDeferredValue,
-	// 💰 you'll need this
-	// useRef,
+	useRef,
 	useState,
 	useTransition,
 } from 'react'
@@ -13,7 +12,7 @@ import { createRoot } from 'react-dom/client'
 import * as RSC from 'react-server-dom-esm/client'
 import { ErrorBoundary } from './error-boundary.js'
 import { shipFallbackSrc } from './img-utils.js'
-import { RouterContext, getGlobalLocation, useLinkHandler } from './router.js'
+import { getGlobalLocation, RouterContext, useLinkHandler } from './router.js'
 
 function fetchContent(location) {
 	return fetch(`/rsc${location}`)
@@ -30,6 +29,7 @@ const initialContentPromise = createFromFetch(fetchContent(initialLocation))
 
 function Root() {
 	// 🐨 create a latestNav ref here which you can initialize to null if you like
+	const latestNav = useRef(null)
 	const [nextLocation, setNextLocation] = useState(getGlobalLocation)
 	const [contentPromise, setContentPromise] = useState(initialContentPromise)
 	const [isPending, startTransition] = useTransition()
@@ -39,11 +39,14 @@ function Root() {
 	function navigate(nextLocation, { replace = false } = {}) {
 		setNextLocation(nextLocation)
 		// 🐨 create a Symbol for this nav (💯 give it a descriptive label for debugging)
+		const nav = Symbol('navigate')
 		// 🐨 set the latestNav.current to this nav
+		latestNav.current = nav
 
 		const nextContentPromise = createFromFetch(
-			fetchContent(nextLocation).then(response => {
+			fetchContent(nextLocation).then((response) => {
 				// 🐨 if the latestNav.current is no longer set to this nav, return early
+				if (latestNav.current !== nav) return
 				if (replace) {
 					window.history.replaceState({}, '', nextLocation)
 				} else {

@@ -1,19 +1,17 @@
 import {
-	Suspense,
 	createElement as h,
 	startTransition,
+	Suspense,
 	use,
-	// 💰 you'll need this
-	// useDeferredValue,
+	useDeferredValue,
 	useState,
-	// 💰 you'll need this
-	// useTransition,
+	useTransition,
 } from 'react'
 import { createRoot } from 'react-dom/client'
 import * as RSC from 'react-server-dom-esm/client'
 import { ErrorBoundary } from './error-boundary.js'
 import { shipFallbackSrc } from './img-utils.js'
-import { RouterContext, getGlobalLocation, useLinkHandler } from './router.js'
+import { getGlobalLocation, RouterContext, useLinkHandler } from './router.js'
 
 function fetchContent(location) {
 	return fetch(`/rsc${location}`)
@@ -30,17 +28,18 @@ const initialContentPromise = createFromFetch(fetchContent(initialLocation))
 
 function Root() {
 	// 🐨 change this to nextLocation
-	const [location, setLocation] = useState(initialLocation)
+	const [nextLocation, setNextLocation] = useState(getGlobalLocation)
 	const [contentPromise, setContentPromise] = useState(initialContentPromise)
 	// 🐨 call useTransition here to get isPending and startTransition
-
+	const [isPending, startTransition] = useTransition()
 	// 🐨 create a location variable set to useDeferredValue of the nextLocation
+	const location = useDeferredValue(nextLocation)
 
 	function navigate(nextLocation, { replace = false } = {}) {
-		setLocation(nextLocation)
+		setNextLocation(nextLocation)
 
 		const nextContentPromise = createFromFetch(
-			fetchContent(nextLocation).then(response => {
+			fetchContent(nextLocation).then((response) => {
 				if (replace) {
 					window.history.replaceState({}, '', nextLocation)
 				} else {
@@ -62,6 +61,8 @@ function Root() {
 				navigate,
 				location,
 				// 🐨 add the nextLocation and isPending to this context value
+				nextLocation,
+				isPending,
 			},
 		},
 		use(contentPromise),
