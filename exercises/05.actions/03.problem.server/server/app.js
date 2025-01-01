@@ -6,13 +6,12 @@ import closeWithGrace from 'close-with-grace'
 import { Hono } from 'hono'
 import { trimTrailingSlash } from 'hono/trailing-slash'
 import { createElement as h } from 'react'
-import {
-	renderToPipeableStream,
-	// 💰 you'll need this
-	// decodeReply,
-} from 'react-server-dom-esm/server'
 import { App } from '../ui/app.js'
 import { shipDataStorage } from './async-storage.js'
+import {
+	decodeReply,
+	renderToPipeableStream,
+} from 'react-server-dom-esm/server'
 
 const PORT = process.env.PORT || 3000
 
@@ -26,7 +25,7 @@ app.use(
 	serveStatic({
 		root: './ui',
 		onNotFound: (path, context) => context.text('File not found', 404),
-		rewriteRequestPath: path => path.replace('/ui', ''),
+		rewriteRequestPath: (path) => path.replace('/ui', ''),
 	}),
 )
 
@@ -49,7 +48,7 @@ app.use(async (context, next) => {
 const moduleBasePath = new URL('../ui', import.meta.url).href
 
 // 🐨 add a returnValue argument here
-async function renderApp(context) {
+async function renderApp(context, returnValue) {
 	const shipId = context.req.param('shipId') || null
 	const search = context.req.query('search') || ''
 	const data = { shipId, search }
@@ -57,14 +56,14 @@ async function renderApp(context) {
 		const root = h(App)
 		// 🐨 change the payload to an object that has { root, returnValue }
 		// 🦉 this will break the app until you update the ui/index.js file!
-		const payload = root
+		const payload = { root, returnValue }
 		const { pipe } = renderToPipeableStream(payload, moduleBasePath)
 		pipe(context.env.outgoing)
 	})
 	return RESPONSE_ALREADY_SENT
 }
 
-app.get('/rsc/:shipId?', async context => await renderApp(context))
+app.get('/rsc/:shipId?', async (context) => await renderApp(context))
 
 // 🐨 add an app.post to handle POST requests to /action/:shipId?
 // 💰 This isn't a hono.js workshop, so this'll get you started:
@@ -80,7 +79,17 @@ app.get('/rsc/:shipId?', async context => await renderApp(context))
 // 6. call the action with the ...args
 // 7. call renderApp with the context and the returnValue of the action
 
-app.get('/:shipId?', async context => {
+app.post('/action/:shipId?', async (context) => {
+	const serverReference = context.req.header('rsc-action')
+	const [filepath, name] = serverReference.split('#')
+	const action = (await import(filepath))[name]
+	const formData = await context.req.formData()
+	const args = await decodeReply(formData, moduleBasePath)
+	const returnValue = await action(...args)
+	return renderApp(context, returnValue)
+})
+
+app.get('/:shipId?', async (context) => {
 	const html = await readFile('./public/index.html', 'utf8')
 	return context.html(html, 200)
 })
@@ -90,7 +99,7 @@ app.onError((err, context) => {
 	return context.json({ error: true, message: 'Something went wrong' }, 500)
 })
 
-const server = serve({ fetch: app.fetch, port: PORT }, info => {
+const server = serve({ fetch: app.fetch, port: PORT }, (info) => {
 	const url = `http://localhost:${info.port}`
 	console.log(`🚀  We have liftoff!\n${url}`)
 })
@@ -99,6 +108,6 @@ closeWithGrace(async ({ signal, err }) => {
 	if (err) console.error('Shutting down server due to error', err)
 	else console.log('Shutting down server due to signal', signal)
 
-	await new Promise(resolve => server.close(resolve))
+	await new Promise((resolve) => server.close(resolve))
 	process.exit()
 })
